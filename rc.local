@@ -1,0 +1,46 @@
+#!/bin/sh -e
+#
+# rc.local
+#
+# This script is executed at the end of each multiuser runlevel.
+# Make sure that the script will "exit 0" on success or any other
+# value on error.
+#
+# In order to enable or disable this script just change the execution
+# bits.
+#
+# By default this script does nothing.
+
+/usr/local/bin/gen-friendlyelec-release
+. /etc/friendlyelec-release
+
+# enable swap if needed
+if [ "x${BOARD}" = "xNanoPi-NEO4" ]; then
+    /usr/bin/enable-swap.sh
+fi
+
+if [ ! -f /etc/firstuse ]; then
+    /bin/echo ${BOARD} > /etc/hostname
+    /bin/sed -i "s/\(127.0.1.1\s*\).*/\1${BOARD}/g" /etc/hosts
+    /bin/hostname ${BOARD}
+    /bin/echo "0" > /etc/firstuse
+fi
+
+if [ -d /sys/module/bcmdhd ]; then
+    /bin/echo 1 > /sys/class/rfkill/rfkill0/state
+    /usr/bin/hciattach /dev/ttyS0 bcm43xx 115200
+fi
+
+if [ -f /usr/bin/python3.6 ]; then
+    setcap cap_sys_rawio+ep /usr/bin/python3.6
+    if [ -f /home/pi/.virtualenvs/cv/bin/python3 ]; then
+        setcap cap_sys_rawio+ep home/pi/.virtualenvs/cv/bin/python3
+    fi
+fi
+
+echo "performance" > /sys/devices/platform/ff9a0000.gpu/devfreq/ff9a0000.gpu/governor
+/usr/bin/cpufreq-set -c 0-5 -g performance
+
+/usr/bin/lcd2usb_print "CPU: {{CPU}}" "Mem: {{MEM}}" "IP: {{IP}}" "LoadAvg: {{LOADAVG}}" 2>&1 > /dev/null&
+nmcli dev wifi connect "netgear_50" password "abcdefabcd" ifname wlan0
+exit 0

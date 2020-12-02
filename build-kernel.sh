@@ -128,13 +128,13 @@ if [ ! -d ${KERNEL_SRC} ]; then
 	git clone ${KERNEL_REPO} --depth 1 -b ${KERNEL_BRANCH} ${KERNEL_SRC}
 fi
 
-if [ ! -d /opt/FriendlyARM/toolchain/6.4-aarch64 ]; then
-	echo "please install aarch64-gcc-6.4 first, using these commands: "
-	echo "\tgit clone https://github.com/friendlyarm/prebuilts.git -b master --depth 1"
-	echo "\tcd prebuilts/gcc-x64"
-	echo "\tcat toolchain-6.4-aarch64.tar.gz* | sudo tar xz -C /"
-	exit 1
-fi
+# if [ ! -d /opt/FriendlyARM/toolchain/6.4-aarch64 ]; then
+# 	echo "please install aarch64-gcc-6.4 first, using these commands: "
+# 	echo "\tgit clone https://github.com/friendlyarm/prebuilts.git -b master --depth 1"
+# 	echo "\tcd prebuilts/gcc-x64"
+# 	echo "\tcat toolchain-6.4-aarch64.tar.gz* | sudo tar xz -C /"
+# 	exit 1
+# fi
 
 if [ -f "${LOGO}" ]; then
 	cp -f ${LOGO} ${KERNEL_SRC}/logo.bmp
@@ -150,23 +150,22 @@ else
         echo "using official kernel logo."
 fi
 
-export PATH=/opt/FriendlyARM/toolchain/6.4-aarch64/bin/:$PATH
-
 cd ${KERNEL_SRC}
-make distclean
+# make distclean
 touch .scmversion
-make CROSS_COMPILE=${CROSS_COMPILE} ARCH=${ARCH} ${KCFG}
+make CROSS_COMPILE=${CROSS_COMPILE} ARCH=${ARCH} -j5 KBUILD_EXTRA_SYMBOLS=`pwd`/drivers/gpu/drm/rockchip/ ${KCFG}
 if [ $? -ne 0 ]; then
 	echo "failed to build kernel."
 	exit 1
 fi
-if [ x"${TARGET_OS}" = x"eflasher" ]; then
-    cp -avf .config .config.old
-    sed -i "s/.*\(PROT_MT_SYNC\).*/CONFIG_TOUCHSCREEN_\1=y/g" .config
-    sed -i "s/\(.*PROT_MT_SLOT\).*/# \1 is not set/g" .config
-fi
+# if [ x"${TARGET_OS}" = x"eflasher" ]; then
+#     cp -avf .config .config.old
+#     sed -i "s/.*\(PROT_MT_SYNC\).*/CONFIG_TOUCHSCREEN_\1=y/g" .config
+#     sed -i "s/\(.*PROT_MT_SLOT\).*/# \1 is not set/g" .config
+# fi
 
-make CROSS_COMPILE=${CROSS_COMPILE} ARCH=${ARCH} ${KALL} -j$(nproc)
+echo "MODULE SYM"
+make CROSS_COMPILE=${CROSS_COMPILE} ARCH=${ARCH} ${KALL} -j$(nproc) -j5
 if [ $? -ne 0 ]; then
         echo "failed to build kernel."
         exit 1
@@ -175,12 +174,12 @@ fi
 rm -rf ${KMODULES_OUTDIR}
 mkdir -p ${KMODULES_OUTDIR}
 
-make CROSS_COMPILE=${CROSS_COMPILE} ARCH=${ARCH} INSTALL_MOD_PATH=${KMODULES_OUTDIR} modules -j$(nproc)
+make CROSS_COMPILE=${CROSS_COMPILE} ARCH=${ARCH} INSTALL_MOD_PATH=${KMODULES_OUTDIR} modules -j$(nproc) -j5
 if [ $? -ne 0 ]; then
 	echo "failed to build kernel modules."
         exit 1
 fi
-make CROSS_COMPILE=${CROSS_COMPILE} ARCH=${ARCH} INSTALL_MOD_PATH=${KMODULES_OUTDIR} modules_install
+make CROSS_COMPILE=${CROSS_COMPILE} ARCH=${ARCH} INSTALL_MOD_PATH=${KMODULES_OUTDIR} modules_install -j5
 if [ $? -ne 0 ]; then
 	echo "failed to build kernel modules."
         exit 1
@@ -244,11 +243,11 @@ if [ x"$DISABLE_MKIMG" = x"1" ]; then
     exit 0
 fi
 
-echo "building kernel ok."
-if ! [ -x "$(command -v simg2img)" ]; then
-    sudo apt update
-    sudo apt install android-tools-fsutils
-fi
+# echo "building kernel ok."
+# if ! [ -x "$(command -v simg2img)" ]; then
+#     sudo apt update
+#     sudo apt install android-tools-fsutils
+# fi
 
 cd ${TOPPATH}
 download_img ${TARGET_OS}
